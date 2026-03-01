@@ -1158,7 +1158,7 @@ keep logs <span class="kw">for</span> &lt;duration&gt;</pre></div>
 
       <h3 id="security-audit">4.2 Security Audit</h3>
 
-      <p>Every build runs:</p>
+      <p>Every build runs static analysis:</p>
 
       <ul>
         <li>Dependency vulnerability scan (block on critical CVE)</li>
@@ -1167,6 +1167,20 @@ keep logs <span class="kw">for</span> &lt;duration&gt;</pre></div>
         <li>Secret detection (no hardcoded keys, tokens, passwords)</li>
         <li>Infrastructure security (HTTPS, CORS, headers, encryption)</li>
       </ul>
+
+      <p>Every build also generates <code>security-tests.sh</code>, a standalone script that probes a running instance with <code>curl</code>:</p>
+
+      <ul>
+        <li><strong>Auth bypass:</strong> Requests without token and with malformed token (expect 401)</li>
+        <li><strong>SQL injection:</strong> <code>OR '1'='1</code>, <code>UNION SELECT</code>, <code>DROP TABLE</code> payloads on text params</li>
+        <li><strong>XSS:</strong> <code>&lt;script&gt;</code>, <code>&lt;img onerror&gt;</code>, <code>javascript:</code> payloads on text params</li>
+        <li><strong>Validation bypass:</strong> Rule-violating values on validated endpoints (expect 400)</li>
+        <li><strong>IDOR:</strong> Foreign resource IDs on fetch endpoints (expect non-200)</li>
+        <li><strong>Rate limiting:</strong> 120 rapid requests to verify 429 responses (if rate limit rules exist)</li>
+        <li><strong>CORS:</strong> Preflight from evil origin to verify no wildcard <code>Access-Control-Allow-Origin</code></li>
+      </ul>
+
+      <p>Usage: <code>./security-tests.sh http://localhost:3001 [AUTH_TOKEN]</code></p>
 
       <h3 id="code-quality">4.3 Code Quality</h3>
 

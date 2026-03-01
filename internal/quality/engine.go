@@ -26,6 +26,7 @@ type Result struct {
 	VulnerabilityReport  *VulnerabilityReport
 	DuplicationFindings  []DuplicationFinding
 	PerformanceFindings  []PerformanceFinding
+	SecurityTestCount    int
 }
 
 // Finding is a security audit finding.
@@ -197,6 +198,17 @@ func Run(app *ir.Application, outputDir string) (*Result, error) {
 		return nil, fmt.Errorf("traceability matrix: %w", err)
 	}
 
+	// Security test script (runtime probes).
+	secScript, secTestCount := generateSecurityTests(app)
+	if secTestCount > 0 {
+		secPath := filepath.Join(outputDir, "security-tests.sh")
+		if err := writeFile(secPath, secScript); err != nil {
+			return nil, fmt.Errorf("security test script: %w", err)
+		}
+		os.Chmod(secPath, 0755)
+	}
+	result.SecurityTestCount = secTestCount
+
 	summary := renderBuildSummary(app, outputDir, result)
 	if err := writeFile(filepath.Join(outputDir, "build-report.md"), summary); err != nil {
 		return nil, fmt.Errorf("build summary: %w", err)
@@ -251,6 +263,9 @@ func PrintSummary(result *Result) {
 	if result.VulnerabilityReport != nil && result.VulnerabilityReport.Total > 0 {
 		parts = append(parts, fmt.Sprintf("%d dependency vulnerabilities (%d high, %d moderate)",
 			result.VulnerabilityReport.Total, result.VulnerabilityReport.High, result.VulnerabilityReport.Moderate))
+	}
+	if result.SecurityTestCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d security probes", result.SecurityTestCount))
 	}
 
 	if criticals == 0 && warnings == 0 && len(result.LintWarnings) == 0 &&

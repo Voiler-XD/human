@@ -79,6 +79,9 @@ func renderBuildSummary(app *ir.Application, outputDir string, result *Result) s
 	fmt.Fprintf(&b, "| Component Tests | %d |\n", result.ComponentTestCount)
 	fmt.Fprintf(&b, "| Edge Case Tests | %d |\n", result.EdgeTestCount)
 	fmt.Fprintf(&b, "| Integration Tests | %d |\n", result.IntegrationTestCount)
+	if result.SecurityTestCount > 0 {
+		fmt.Fprintf(&b, "| Security Probes | %d |\n", result.SecurityTestCount)
+	}
 	fmt.Fprintf(&b, "| **Total Tests** | **%d** |\n", totalTests)
 	fmt.Fprintf(&b, "| Test Files | %d |\n", totalFiles)
 	fmt.Fprintf(&b, "| Security Critical | %d |\n", criticals)
@@ -99,6 +102,11 @@ func renderBuildSummary(app *ir.Application, outputDir string, result *Result) s
 
 	// Performance section
 	b.WriteString(renderPerformanceSection(result.PerformanceFindings))
+
+	// Security probes section
+	if result.SecurityTestCount > 0 {
+		b.WriteString(renderSecurityTestSection(result.SecurityTestCount))
+	}
 
 	// Traceability section
 	if app.Config != nil {
