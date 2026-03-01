@@ -281,6 +281,7 @@ for _, model := range app.Data {
 
 Every generator should have a `_test.go` file. Use stdlib `testing` only (no external test libraries).
 
+{% raw %}
 ```go
 package yourtarget
 
@@ -347,6 +348,7 @@ func TestGenerate(t *testing.T) {
     }
 }
 ```
+{% endraw %}
 
 Run tests with:
 ```bash
