@@ -9,7 +9,9 @@ import (
 	"github.com/barun-bash/human/internal/codegen"
 	"github.com/barun-bash/human/internal/codegen/scaffold"
 	"github.com/barun-bash/human/internal/codegen/storybook"
+	"github.com/barun-bash/human/internal/config"
 	"github.com/barun-bash/human/internal/ir"
+	"github.com/barun-bash/human/internal/plugin"
 	"github.com/barun-bash/human/internal/quality"
 )
 
@@ -47,13 +49,20 @@ func CountFiles(dir string) int {
 // PlanStages returns the list of stage names that will run for the given app.
 // Use this to pre-populate a progress display.
 func PlanStages(app *ir.Application) []string {
-	return PlanStagesWithRegistry(DefaultRegistry(), app)
+	return PlanStagesWithRegistry(DefaultRegistryWithPlugins(), app)
 }
 
 // PlanStagesWithRegistry returns the list of stage names for the given registry
 // and app. Includes quality and scaffold stages that always run.
 func PlanStagesWithRegistry(reg *codegen.Registry, app *ir.Application) []string {
-	stages := reg.PlanStages(app)
+	cfg, _ := config.Load(".")
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	var stages []string
+	for _, g := range reg.EnabledWithConfig(app, cfg) {
+		stages = append(stages, g.StageName())
+	}
 	stages = append(stages, "Running quality checks")
 	stages = append(stages, "Scaffolding project files")
 	return stages
@@ -70,8 +79,9 @@ func RunGenerators(app *ir.Application, outputDir string) ([]Result, *quality.Re
 }
 
 // RunGeneratorsWithProgress is like RunGenerators but calls progress before each stage.
+// It uses the full registry including external plugins.
 func RunGeneratorsWithProgress(app *ir.Application, outputDir string, progress ProgressFunc) ([]Result, *quality.Result, *BuildTiming, error) {
-	return RunGeneratorsWithRegistry(DefaultRegistry(), app, outputDir, progress)
+	return RunGeneratorsWithRegistry(DefaultRegistryWithPlugins(), app, outputDir, progress)
 }
 
 // RunGeneratorsWithRegistry dispatches generators from the given registry,
@@ -91,8 +101,26 @@ func RunGeneratorsWithRegistry(reg *codegen.Registry, app *ir.Application, outpu
 		return Result{Name: name, Dir: dir, Files: files, Duration: time.Since(start)}
 	}
 
+	// Load project config for tri-state overrides and plugin settings.
+	cfg, _ := config.Load(".")
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+
+	// Get enabled generators, respecting config overrides.
+	enabled := reg.EnabledWithConfig(app, cfg)
+
+	// Inject settings into external generators.
+	for _, g := range enabled {
+		if ext, ok := g.(*plugin.ExternalGenerator); ok {
+			if settings := cfg.PluginSettings(ext.Meta().Name); settings != nil {
+				ext.SetSettings(settings)
+			}
+		}
+	}
+
 	// Run all enabled generators from the registry.
-	for _, g := range reg.Enabled(app) {
+	for _, g := range enabled {
 		name := g.Meta().Name
 		report(g.StageName())
 		start := time.Now()

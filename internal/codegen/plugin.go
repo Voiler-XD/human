@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/barun-bash/human/internal/config"
 	"github.com/barun-bash/human/internal/ir"
 )
 
@@ -105,6 +106,28 @@ func (r *Registry) Names() []string {
 		names[i] = g.Meta().Name
 	}
 	return names
+}
+
+// EnabledWithConfig returns generators that should run, respecting tri-state
+// overrides from the project config. For each generator:
+//   - explicitly enabled → always include
+//   - explicitly disabled → always exclude
+//   - no override → use the generator's own Enabled() logic
+func (r *Registry) EnabledWithConfig(app *ir.Application, cfg *config.Config) []CodeGenerator {
+	var out []CodeGenerator
+	for _, g := range r.generators {
+		name := g.Meta().Name
+		if enabled, overridden := cfg.PluginEnabled(name); overridden {
+			if enabled {
+				out = append(out, g)
+			}
+			continue
+		}
+		if g.Enabled(app) {
+			out = append(out, g)
+		}
+	}
+	return out
 }
 
 // PlanStages returns the stage names for all enabled generators, suitable for

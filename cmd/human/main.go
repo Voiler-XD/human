@@ -23,6 +23,7 @@ import (
 	"github.com/barun-bash/human/internal/openapi"
 	"github.com/barun-bash/human/internal/ir"
 	"github.com/barun-bash/human/internal/llm"
+	"github.com/barun-bash/human/internal/plugin"
 	_ "github.com/barun-bash/human/internal/llm/providers" // register providers
 	"github.com/barun-bash/human/internal/repl"
 	"github.com/barun-bash/human/internal/version"
@@ -87,6 +88,8 @@ func main() {
 		cmdFixCLI()
 	case "doctor":
 		cmdutil.RunDoctor(os.Stdout)
+	case "plugin":
+		cmdPlugin()
 	default:
 		fmt.Fprintln(os.Stderr, cli.Error(fmt.Sprintf("Unknown command: %s", args[0])))
 		fmt.Fprintln(os.Stderr)
@@ -112,7 +115,7 @@ func filterGlobalFlags(args []string) []string {
 
 func cmdCheck() {
 	if len(os.Args) < 3 {
-		fmt.Fprintln(os.Stderr, "Usage: human check <file.human>")
+		fmt.Fprintln(os.Stderr, "Usage: human check <file.human | directory>")
 		os.Exit(1)
 	}
 	file := os.Args[2]
@@ -155,7 +158,7 @@ func cmdBuild() {
 	}
 
 	if file == "" {
-		fmt.Fprintln(os.Stderr, "Usage: human build [--inspect] [--watch] [--timing] <file.human>")
+		fmt.Fprintln(os.Stderr, "Usage: human build [--inspect] [--watch] [--timing] <file.human | directory>")
 		os.Exit(1)
 	}
 
@@ -533,7 +536,19 @@ func deployTerraform(app *ir.Application, outputDir, envName string, dryRun bool
 // ── build --watch ──
 
 func cmdBuildWatch(file string) {
-	fmt.Println(cli.Info(fmt.Sprintf("Watching %s for changes... (Ctrl+C to stop)", file)))
+	// Discover all project files to watch.
+	result, err := cmdutil.ParseAndAnalyze(file)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, cli.Error(err.Error()))
+		os.Exit(1)
+	}
+	watchFiles := result.SourceFiles
+
+	if len(watchFiles) > 1 {
+		fmt.Println(cli.Info(fmt.Sprintf("Watching %d files for changes... (Ctrl+C to stop)", len(watchFiles))))
+	} else {
+		fmt.Println(cli.Info(fmt.Sprintf("Watching %s for changes... (Ctrl+C to stop)", file)))
+	}
 
 	// Catch interrupt to exit cleanly
 	sigCh := make(chan os.Signal, 1)
@@ -549,20 +564,32 @@ func cmdBuildWatch(file string) {
 		default:
 		}
 
-		info, err := os.Stat(file)
-		if err != nil {
-			time.Sleep(500 * time.Millisecond)
-			continue
+		// Check all watched files for modifications.
+		var latestMod time.Time
+		var changedFile string
+		for _, wf := range watchFiles {
+			info, err := os.Stat(wf)
+			if err != nil {
+				continue
+			}
+			if info.ModTime().After(latestMod) {
+				latestMod = info.ModTime()
+				changedFile = wf
+			}
 		}
 
-		if info.ModTime().After(lastMod) {
-			lastMod = info.ModTime()
+		if latestMod.After(lastMod) {
+			lastMod = latestMod
 
 			// Small debounce — editors often write multiple times
 			time.Sleep(100 * time.Millisecond)
 
 			now := time.Now().Format("15:04:05")
-			fmt.Printf("\n%s %s\n", cli.Info(now), cli.Info("Building..."))
+			if len(watchFiles) > 1 && changedFile != "" {
+				fmt.Printf("\n%s %s (%s changed)\n", cli.Info(now), cli.Info("Building..."), filepath.Base(changedFile))
+			} else {
+				fmt.Printf("\n%s %s\n", cli.Info(now), cli.Info("Building..."))
+			}
 
 			if err := runBuild(file); err != nil {
 				fmt.Fprintln(os.Stderr, cli.Error(fmt.Sprintf("Build failed: %v", err)))
@@ -1507,6 +1534,132 @@ func designFromImage(imagePaths []string, cfg *figma.GenerateConfig) (string, er
 	return figma.AnalyzeMultipleImages(imagePaths, cfg, provider)
 }
 
+// ── Plugin Command ──
+
+func cmdPlugin() {
+	args := filterGlobalFlags(os.Args[2:])
+	if len(args) == 0 {
+		printPluginUsage()
+		return
+	}
+
+	switch args[0] {
+	case "list", "ls":
+		pluginList()
+	case "install":
+		pluginInstall(args[1:])
+	case "remove", "uninstall":
+		pluginRemove(args[1:])
+	case "create":
+		pluginCreate(args[1:])
+	default:
+		fmt.Fprintf(os.Stderr, "%s\n", cli.Error(fmt.Sprintf("Unknown plugin subcommand: %s", args[0])))
+		printPluginUsage()
+		os.Exit(1)
+	}
+}
+
+func pluginList() {
+	manifests, err := plugin.List()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, cli.Error(fmt.Sprintf("Failed to list plugins: %v", err)))
+		os.Exit(1)
+	}
+
+	if len(manifests) == 0 {
+		fmt.Println(cli.Info("No plugins installed."))
+		fmt.Println(cli.Muted("  Install one with: human plugin install <go-module-path>"))
+		return
+	}
+
+	fmt.Println()
+	fmt.Println(cli.Heading("Installed Plugins"))
+	fmt.Printf("  %-20s %-12s %s\n", "NAME", "VERSION", "CATEGORY")
+	fmt.Printf("  %-20s %-12s %s\n", "────", "───────", "────────")
+	for _, m := range manifests {
+		fmt.Printf("  %-20s %-12s %s\n", m.Name, m.Version, m.Category)
+	}
+	fmt.Println()
+}
+
+func pluginInstall(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "Usage: human plugin install <go-module-path>")
+		fmt.Fprintln(os.Stderr, "       human plugin install --binary <path>")
+		os.Exit(1)
+	}
+
+	// Check for --binary flag.
+	if args[0] == "--binary" {
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "Usage: human plugin install --binary <path>")
+			os.Exit(1)
+		}
+		fmt.Printf("%s Installing plugin from binary: %s\n", cli.Accent("▶"), args[1])
+		if err := plugin.InstallFromBinary(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, cli.Error(err.Error()))
+			os.Exit(1)
+		}
+		fmt.Println(cli.Success("Plugin installed successfully."))
+		return
+	}
+
+	source := args[0]
+	fmt.Printf("%s Installing plugin: %s\n", cli.Accent("▶"), source)
+	if err := plugin.Install(source); err != nil {
+		fmt.Fprintln(os.Stderr, cli.Error(err.Error()))
+		os.Exit(1)
+	}
+	fmt.Println(cli.Success("Plugin installed successfully."))
+}
+
+func pluginRemove(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "Usage: human plugin remove <name>")
+		os.Exit(1)
+	}
+
+	name := args[0]
+	if err := plugin.Uninstall(name); err != nil {
+		fmt.Fprintln(os.Stderr, cli.Error(err.Error()))
+		os.Exit(1)
+	}
+	fmt.Println(cli.Success(fmt.Sprintf("Plugin %q removed.", name)))
+}
+
+func pluginCreate(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "Usage: human plugin create <name>")
+		os.Exit(1)
+	}
+
+	name := args[0]
+	category := "frontend"
+	if len(args) > 1 {
+		category = args[1]
+	}
+
+	outputDir := name
+	fmt.Printf("%s Scaffolding plugin: %s (%s)\n", cli.Accent("▶"), name, category)
+	if err := plugin.Scaffold(name, category, outputDir); err != nil {
+		fmt.Fprintln(os.Stderr, cli.Error(err.Error()))
+		os.Exit(1)
+	}
+	fmt.Println(cli.Success(fmt.Sprintf("Plugin project created at ./%s/", name)))
+	fmt.Println(cli.Muted("  cd " + name + " && make build"))
+}
+
+func printPluginUsage() {
+	fmt.Println(`Usage: human plugin <subcommand>
+
+Subcommands:
+  list                      List installed plugins
+  install <go-module-path>  Install a plugin from a Go module
+  install --binary <path>   Install a plugin from a local binary
+  remove <name>             Remove an installed plugin
+  create <name> [category]  Scaffold a new plugin project`)
+}
+
 // ── Helpers ──
 
 func printUsage() {
@@ -1516,11 +1669,11 @@ Usage:
   human <command> [options] [file]
 
 Commands:
-  check <file>              Validate a .human file
-  build <file>              Compile to IR and generate code
-  build --inspect <file>    Parse and print IR as YAML to stdout
-  build --watch <file>      Rebuild automatically on file changes
-  build --timing <file>     Show per-generator timing breakdown
+  check <file|dir>           Validate a .human file (discovers siblings)
+  build <file|dir>           Compile to IR and generate code
+  build --inspect <file|dir> Parse and print IR as YAML to stdout
+  build --watch <file|dir>   Rebuild automatically on file changes
+  build --timing <file|dir>  Show per-generator timing breakdown
   init [name]               Create a new Human project
   run                       Start the development server
   test                      Run generated tests
@@ -1547,6 +1700,13 @@ Design Import:
   design <image-file>       Import from screenshot via LLM vision
   import figma <url>        Import via Figma MCP server (REPL)
   import openapi <file>     Import from OpenAPI/Swagger JSON spec
+
+Plugin Ecosystem:
+  plugin list               List installed plugins
+  plugin install <module>   Install a plugin from a Go module
+  plugin install --binary   Install a plugin from a local binary
+  plugin remove <name>      Remove an installed plugin
+  plugin create <name>      Scaffold a new plugin project
 
 Git Workflow:
   feature <name>            Create a feature branch (feature/<name>)

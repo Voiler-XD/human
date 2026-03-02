@@ -432,3 +432,149 @@ Before submitting a new generator:
 ## Dependencies
 
 The Human compiler uses **zero external Go dependencies** (only `golang.org/x/sys` and `golang.org/x/term` for terminal support). All code generation uses `fmt.Sprintf` and `strings.Builder` — no template engines. Keep it that way.
+
+---
+
+## External Plugin Authoring
+
+External plugins are standalone binaries that extend the Human compiler without modifying its source code. They communicate via a simple CLI protocol.
+
+### Plugin Protocol
+
+Every external plugin must support two subcommands:
+
+#### 1. `<binary> meta`
+
+Prints a JSON manifest to stdout describing the plugin:
+
+```json
+{
+  "name": "htmx",
+  "version": "0.1.0",
+  "description": "HTMX + Alpine.js frontend generator",
+  "category": "frontend"
+}
+```
+
+Fields:
+- **name** — unique identifier, used as the output subdirectory name
+- **version** — semver version string
+- **description** — short human-readable description
+- **category** — one of: `frontend`, `backend`, `database`, `infra`
+
+#### 2. `<binary> generate --ir <path> --output <dir> [--settings <json>]`
+
+Reads the IR JSON from `<path>`, generates files into `<dir>`, and exits with code 0 on success or non-zero on failure. Error messages should be written to stderr.
+
+- **`--ir`** — path to a temporary file containing the full `ir.Application` JSON
+- **`--output`** — directory to write generated files into (already created)
+- **`--settings`** — optional JSON string with plugin-specific settings from `.human/config.json`
+
+### Plugin Directory Layout
+
+Installed plugins live in `~/.human/plugins/<name>/`:
+
+```
+~/.human/plugins/
+├── htmx/
+│   ├── plugin.json       ← manifest (auto-generated on install)
+│   └── htmx              ← binary
+├── k8s/
+│   ├── plugin.json
+│   └── k8s
+```
+
+### Install Flow
+
+```bash
+# From a Go module (runs go install, queries meta, copies binary)
+human plugin install github.com/user/human-plugin-htmx
+
+# From a local binary (queries meta, copies binary)
+human plugin install --binary ./htmx
+
+# List installed plugins
+human plugin list
+
+# Remove a plugin
+human plugin remove htmx
+```
+
+Or from the REPL:
+
+```
+/plugin install github.com/user/human-plugin-htmx
+/plugin list
+/plugin remove htmx
+```
+
+### Scaffold a New Plugin
+
+The fastest way to start a new plugin:
+
+```bash
+human plugin create my-plugin frontend
+cd my-plugin
+make build
+make install
+```
+
+This generates a complete Go project with:
+- `main.go` — CLI entry point with `meta` and `generate` subcommands
+- `generator.go` — skeleton Generate function
+- `go.mod` — Go module file
+- `Makefile` — build, test, install targets
+- `README.md` — quickstart instructions
+
+### Plugin Configuration
+
+Plugins can receive per-project settings via `.human/config.json`:
+
+```json
+{
+  "plugins": [
+    {
+      "name": "htmx",
+      "enabled": true,
+      "settings": {
+        "alpine_version": "3.x"
+      }
+    },
+    {
+      "name": "k8s",
+      "settings": {
+        "namespace": "production"
+      }
+    }
+  ]
+}
+```
+
+- **`enabled: true`** — force the plugin to run
+- **`enabled: false`** — disable the plugin
+- **`enabled` omitted** — plugin runs automatically (external plugins default to enabled)
+- **`settings`** — passed as `--settings` JSON to the generate command
+
+### Build Integration
+
+External plugins are automatically discovered and run during `human build`. They execute after all built-in generators, in discovery order. If a plugin name collides with a built-in generator, the built-in takes precedence.
+
+### Example Plugins
+
+Three complete example plugins are included in the repository:
+
+| Plugin | Category | Description |
+|--------|----------|-------------|
+| [`examples/plugins/htmx/`](../examples/plugins/htmx/) | frontend | HTMX + Alpine.js HTML templates |
+| [`examples/plugins/k8s/`](../examples/plugins/k8s/) | infra | Kubernetes deployment manifests |
+| [`examples/plugins/graphql/`](../examples/plugins/graphql/) | backend | GraphQL schema + resolver stubs |
+
+Each is a complete, buildable Go project that can be installed as a plugin.
+
+### Plugin Development Tips
+
+1. **Parse only what you need** — define simplified IR structs with only the fields your generator uses. The JSON decoder will ignore unknown fields.
+2. **Write to the output directory** — never write outside the `--output` directory.
+3. **Use stderr for errors** — the compiler captures stderr as the error message on failure.
+4. **Test with real IR** — run `human build --inspect myapp.human > ir.json` to get a real IR file for testing.
+5. **Keep it fast** — plugins run synchronously in the build pipeline.

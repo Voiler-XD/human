@@ -183,6 +183,13 @@ func (r *REPL) registerCommands() {
 			Complete:    completeMCP,
 		},
 		{
+			Name:        "/plugin",
+			Description: "Manage external plugins",
+			Usage:       "/plugin [list|install|remove|create]",
+			Handler:     cmdPlugin,
+			Complete:    completePlugin,
+		},
+		{
 			Name:        "/explain",
 			Description: "Learn Human syntax by topic",
 			Usage:       "/explain [topic]",
@@ -780,6 +787,7 @@ func cmdHelp(r *REPL, args []string) {
 		"/check", "/build", "/deploy", "/stop",
 		"/status", "/run", "/test", "/audit", "/review", "/examples",
 		"/explain", "/syntax", "/fix", "/doctor",
+		"/plugin",
 		"/instructions", "/connect", "/disconnect", "/model", "/mcp", "/theme", "/config",
 		"/history", "/cd", "/pwd", "/clear", "/version", "/update", "/help", "/quit",
 	}

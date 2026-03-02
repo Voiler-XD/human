@@ -22,6 +22,7 @@ import (
 	"github.com/barun-bash/human/internal/codegen/terraform"
 	"github.com/barun-bash/human/internal/codegen/vue"
 	"github.com/barun-bash/human/internal/ir"
+	"github.com/barun-bash/human/internal/plugin"
 )
 
 // DefaultRegistry returns a registry populated with all 14 built-in code
@@ -54,6 +55,29 @@ func DefaultRegistry() *codegen.Registry {
 		if err := reg.Register(g); err != nil {
 			panic("built-in generator registration: " + err.Error())
 		}
+	}
+
+	return reg
+}
+
+// DefaultRegistryWithPlugins returns a registry with all built-in generators
+// plus any external plugins discovered in ~/.human/plugins/. External plugins
+// that collide with built-in names are silently skipped.
+func DefaultRegistryWithPlugins() *codegen.Registry {
+	reg := DefaultRegistry()
+
+	externals, err := plugin.LoadAll()
+	if err != nil {
+		// Plugin loading is best-effort; don't break the build.
+		return reg
+	}
+
+	for _, g := range externals {
+		// Skip if a built-in generator already has this name.
+		if existing := reg.Get(g.Meta().Name); existing != nil {
+			continue
+		}
+		_ = reg.Register(g)
 	}
 
 	return reg
