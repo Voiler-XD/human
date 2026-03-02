@@ -9,7 +9,40 @@ import (
 
 // Config holds all project configuration loaded from .human/config.json.
 type Config struct {
-	LLM *LLMConfig `json:"llm,omitempty"`
+	LLM     *LLMConfig      `json:"llm,omitempty"`
+	Plugins []*PluginConfig  `json:"plugins,omitempty"`
+}
+
+// PluginConfig holds per-plugin settings. The Name matches a CodeGenerator's
+// Meta().Name (e.g. "react", "docker"). Enabled is tri-state: nil means auto
+// (use the generator's own Enabled logic), true/false forces the generator
+// on or off.
+type PluginConfig struct {
+	Name     string            `json:"name"`
+	Enabled  *bool             `json:"enabled,omitempty"`
+	Settings map[string]string `json:"settings,omitempty"`
+}
+
+// PluginEnabled returns the override state for the named plugin.
+// Returns (true, true) if explicitly enabled, (false, true) if explicitly
+// disabled, and (false, false) if no override exists (use auto-detection).
+func (c *Config) PluginEnabled(name string) (enabled, overridden bool) {
+	for _, p := range c.Plugins {
+		if p.Name == name && p.Enabled != nil {
+			return *p.Enabled, true
+		}
+	}
+	return false, false
+}
+
+// PluginSettings returns the custom settings for the named plugin, or nil.
+func (c *Config) PluginSettings(name string) map[string]string {
+	for _, p := range c.Plugins {
+		if p.Name == name {
+			return p.Settings
+		}
+	}
+	return nil
 }
 
 // LLMConfig holds configuration for the LLM connector.

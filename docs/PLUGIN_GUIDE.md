@@ -27,11 +27,36 @@ internal/codegen/
 │   └── helpers.go       (optional)
 ```
 
-### 2. Implement the Generator struct
+### 2. Implement the CodeGenerator interface
 
-Every generator follows the same concrete struct pattern — there is no shared interface. Each generator is a struct with a `Generate` method:
+All generators implement the `codegen.CodeGenerator` interface defined in `internal/codegen/plugin.go`. This interface has 5 methods:
 
+{% raw %}
 ```go
+// CodeGenerator is the interface that all code generators implement.
+type CodeGenerator interface {
+    Meta() PluginMeta                                    // metadata (name, version, category)
+    Enabled(app *ir.Application) bool                    // should this generator run?
+    StageName() string                                   // progress display name
+    OutputDir() string                                   // subdirectory (empty = root)
+    Generate(app *ir.Application, outputDir string) error // produce files
+}
+
+// PluginMeta holds descriptive metadata for a code generator.
+type PluginMeta struct {
+    Name        string   // unique identifier (e.g. "react", "node")
+    Version     string   // semver (e.g. "1.0.0")
+    Description string   // short human-readable description
+    Category    Category // "frontend", "backend", "database", or "infra"
+}
+```
+{% endraw %}
+
+Create two files in your package — `generator.go` for the `Generate` method and `plugin.go` for the interface methods:
+
+{% raw %}
+```go
+// internal/codegen/yourtarget/generator.go
 package yourtarget
 
 import (
@@ -42,12 +67,9 @@ import (
     "github.com/barun-bash/human/internal/ir"
 )
 
-// Generator produces a YourTarget project from Intent IR.
 type Generator struct{}
 
-// Generate writes a complete project to outputDir.
 func (g Generator) Generate(app *ir.Application, outputDir string) error {
-    // 1. Create directory structure
     dirs := []string{
         filepath.Join(outputDir, "src"),
         filepath.Join(outputDir, "src", "models"),
@@ -58,58 +80,72 @@ func (g Generator) Generate(app *ir.Application, outputDir string) error {
         }
     }
 
-    // 2. Generate files from IR
     files := map[string]string{
         filepath.Join(outputDir, "src", "main.go"): generateMain(app),
     }
-
-    // 3. Write files
     for path, content := range files {
         if err := writeFile(path, content); err != nil {
             return err
         }
     }
-
     return nil
 }
-
-func writeFile(path, content string) error {
-    if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-        return err
-    }
-    return os.WriteFile(path, []byte(content), 0644)
-}
 ```
+{% endraw %}
+
+{% raw %}
+```go
+// internal/codegen/yourtarget/plugin.go
+package yourtarget
+
+import (
+    "strings"
+
+    "github.com/barun-bash/human/internal/codegen"
+    "github.com/barun-bash/human/internal/ir"
+)
+
+func (g Generator) Meta() codegen.PluginMeta {
+    return codegen.PluginMeta{
+        Name:        "yourtarget",
+        Version:     "1.0.0",
+        Description: "YourTarget backend",
+        Category:    codegen.CategoryBackend,
+    }
+}
+
+func (g Generator) Enabled(app *ir.Application) bool {
+    if app.Config == nil {
+        return false
+    }
+    return strings.Contains(strings.ToLower(app.Config.Backend), "yourtarget")
+}
+
+func (g Generator) StageName() string { return "Generating YourTarget backend" }
+func (g Generator) OutputDir() string { return "yourtarget" }
+```
+{% endraw %}
 
 ### 3. Register in the build pipeline
 
-Generators are dispatched in `internal/build/pipeline.go`. There is no runtime registry — each generator is imported and called directly based on the app's `BuildConfig`.
+Generators are registered in `internal/build/registry.go` via the `DefaultRegistry()` function. The registry determines execution order and dispatches only enabled generators.
 
-Add your import:
-```go
-import (
-    // ... existing imports
-    "github.com/barun-bash/human/internal/codegen/yourtarget"
-)
-```
-
-Add your dispatch block in `RunGeneratorsWithProgress()`. Follow the exact pattern used by existing generators:
+Add your import and registration:
 
 ```go
-// In the appropriate section (frontend, backend, or database)
-if strings.Contains(backendLower, "yourtarget") {
-    report("Generating YourTarget backend")
-    start := time.Now()
-    dir := filepath.Join(outputDir, "yourtarget")
-    g := yourtarget.Generator{}
-    if err := g.Generate(app, dir); err != nil {
-        return nil, nil, nil, fmt.Errorf("YourTarget codegen: %w", err)
-    }
-    results = append(results, timeGen("yourtarget", dir, CountFiles(dir), start))
+// In internal/build/registry.go
+import "github.com/barun-bash/human/internal/codegen/yourtarget"
+
+func DefaultRegistry() *codegen.Registry {
+    reg := codegen.NewRegistry()
+    // ... existing generators ...
+    reg.Register(yourtarget.Generator{})
+    // ...
+    return reg
 }
 ```
 
-Also add the same condition to `PlanStages()` in the same file so the progress display shows your generator.
+Registration order determines execution order. Place your generator in the appropriate section (frontend, backend, database, or infrastructure). The `Enabled` method on your generator controls when it runs — no `if` blocks needed in the pipeline.
 
 ## IR Type Reference
 
@@ -355,19 +391,40 @@ Run tests with:
 go test ./internal/codegen/yourtarget/...
 ```
 
+## Plugin Configuration
+
+Generators can be overridden per-project via `.human/config.json`:
+
+```json
+{
+  "plugins": [
+    {"name": "react", "enabled": true},
+    {"name": "storybook", "enabled": false},
+    {"name": "docker", "settings": {"compose_version": "3.8"}}
+  ]
+}
+```
+
+- **`enabled: true`** — force the generator to run even if `Enabled()` returns false
+- **`enabled: false`** — force the generator to skip even if `Enabled()` returns true
+- **`enabled` omitted** — use the generator's own `Enabled()` logic (default)
+- **`settings`** — arbitrary key-value pairs passed to the generator
+
 ## Checklist
 
 Before submitting a new generator:
 
 - [ ] Package created at `internal/codegen/yourtarget/`
-- [ ] `Generator` struct with `Generate(app *ir.Application, outputDir string) error`
+- [ ] `Generator` struct implements `codegen.CodeGenerator` interface (5 methods)
+- [ ] `plugin.go` with `Meta()`, `Enabled()`, `StageName()`, `OutputDir()`
+- [ ] `generator.go` with `Generate(app *ir.Application, outputDir string) error`
 - [ ] Handles `app.Data` → models/types
 - [ ] Handles `app.Pages` → UI components (if frontend)
 - [ ] Handles `app.APIs` → routes/controllers (if backend)
 - [ ] Handles `app.Auth` → authentication middleware
 - [ ] Handles `app.Theme` → design tokens/CSS (if frontend)
 - [ ] Tests with a representative `*ir.Application`
-- [ ] Registered in `internal/build/pipeline.go` (both `RunGeneratorsWithProgress` and `PlanStages`)
+- [ ] Registered in `internal/build/registry.go` (`DefaultRegistry()`)
 - [ ] `go vet ./...` passes
 - [ ] `go test ./...` passes
 - [ ] Generates working, runnable code (not stubs)
