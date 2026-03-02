@@ -45,8 +45,12 @@ type endpoint struct {
 }
 
 type auth struct {
-	Provider string `json:"provider"`
-	Methods  []string `json:"methods,omitempty"`
+	Methods []*authMethod `json:"methods,omitempty"`
+}
+
+type authMethod struct {
+	Type     string `json:"type"`
+	Provider string `json:"provider,omitempty"`
 }
 
 func runGenerate(args []string) error {
