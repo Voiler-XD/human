@@ -72,13 +72,20 @@ func (g *ExternalGenerator) Generate(app *ir.Application, outputDir string) erro
 	}
 	tmpFile.Close()
 
+	// Resolve output directory to an absolute path so the plugin writes
+	// to the correct location regardless of its working directory.
+	absOutput, err := filepath.Abs(outputDir)
+	if err != nil {
+		return fmt.Errorf("resolving output dir: %w", err)
+	}
+
 	// Ensure output directory exists.
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	if err := os.MkdirAll(absOutput, 0755); err != nil {
 		return fmt.Errorf("creating output dir for plugin %s: %w", g.manifest.Name, err)
 	}
 
 	// Build command arguments.
-	args := []string{"generate", "--ir", tmpFile.Name(), "--output", outputDir}
+	args := []string{"generate", "--ir", tmpFile.Name(), "--output", absOutput}
 	if len(g.settings) > 0 {
 		settingsJSON, err := json.Marshal(g.settings)
 		if err != nil {
@@ -91,7 +98,6 @@ func (g *ExternalGenerator) Generate(app *ir.Application, outputDir string) erro
 	cmd := exec.Command(g.binary, args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	cmd.Dir = outputDir
 
 	if err := cmd.Run(); err != nil {
 		errMsg := stderr.String()
