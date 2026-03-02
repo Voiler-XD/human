@@ -1,0 +1,48 @@
+page Home:
+  show a hero section with the app name and tagline
+  show a "Get Started" button
+  clicking the "Get Started" button navigates to Dashboard
+  if user is not logged in, show login and signup buttons
+  if user is logged in, show "Go to Dashboard" button
+
+page Dashboard:
+  show a greeting with the user's name
+  show a summary card with total tasks, completed tasks, and overdue tasks
+
+  show a list of tasks sorted by due date
+  each task shows its title, status, priority, and due date
+  each task shows the status as a colored badge
+  clicking a task opens a detail panel on the right
+  dragging a task reorders the list
+
+  there is a search bar that filters tasks by title
+  there is a dropdown to filter by status
+  there is a dropdown to filter by priority
+  there is a date range picker to filter by due date
+
+  if no tasks match, show "No tasks found. Create your first task!"
+  while loading, show a skeleton screen
+
+  there is a floating button to add a new task
+  clicking the add button opens a form to create a Task
+  scrolling to bottom loads more tasks
+
+page Profile:
+  show the user's name, email, and avatar
+  show the user's role as a badge
+  show account creation date in relative format like "joined 3 months ago"
+  there is a form to update name and bio
+  there is a file upload for avatar
+  clicking "Save" updates the user profile
+  clicking "Change Password" opens a password change form
+  if the update succeeds, show "Profile updated successfully"
+  if there is an error, show the error message
+
+component TaskCard:
+  accepts task as Task
+  show the task title in bold
+  show the status as a colored badge
+  show the priority with an icon
+  show the due date in relative format like "due in 2 days"
+  if task is overdue, show the due date in red
+  clicking the card triggers on_click

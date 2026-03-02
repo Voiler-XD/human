@@ -26,6 +26,7 @@ type AppDeclaration struct {
 	Name     string // e.g. "TaskFlow"
 	Platform string // e.g. "web", "mobile", "desktop", "api"
 	Line     int
+	File     string // source file (set during multi-file merge)
 }
 
 // DataDeclaration represents a data model with fields and relationships.
@@ -39,6 +40,7 @@ type DataDeclaration struct {
 	Fields        []*Field
 	Relationships []*Relationship
 	Line          int
+	File          string
 }
 
 // Field represents a single field within a data declaration.
@@ -77,6 +79,7 @@ type PageDeclaration struct {
 	Name       string
 	Statements []*Statement
 	Line       int
+	File       string
 }
 
 // ComponentDeclaration represents a reusable UI component.
@@ -89,6 +92,7 @@ type ComponentDeclaration struct {
 	Accepts    []string
 	Statements []*Statement
 	Line       int
+	File       string
 }
 
 // APIDeclaration represents a backend API endpoint.
@@ -104,6 +108,7 @@ type APIDeclaration struct {
 	Accepts    []string // parameter names
 	Statements []*Statement
 	Line       int
+	File       string
 }
 
 // PolicyDeclaration represents authorization rules for a role.
@@ -115,6 +120,7 @@ type PolicyDeclaration struct {
 	Name  string
 	Rules []*PolicyRule
 	Line  int
+	File  string
 }
 
 // PolicyRule represents a single permission rule within a policy.
@@ -134,6 +140,7 @@ type WorkflowDeclaration struct {
 	Event      string // trigger description: "a user signs up"
 	Statements []*Statement
 	Line       int
+	File       string
 }
 
 // ThemeDeclaration represents visual theme configuration.
@@ -144,6 +151,7 @@ type WorkflowDeclaration struct {
 type ThemeDeclaration struct {
 	Properties []*Statement
 	Line       int
+	File       string
 }
 
 // AuthenticationDeclaration represents security/auth configuration.
@@ -154,6 +162,7 @@ type ThemeDeclaration struct {
 type AuthenticationDeclaration struct {
 	Statements []*Statement
 	Line       int
+	File       string
 }
 
 // DatabaseDeclaration represents database configuration.
@@ -164,6 +173,7 @@ type AuthenticationDeclaration struct {
 type DatabaseDeclaration struct {
 	Statements []*Statement
 	Line       int
+	File       string
 }
 
 // IntegrationDeclaration represents a third-party service integration.
@@ -175,6 +185,7 @@ type IntegrationDeclaration struct {
 	Service    string
 	Statements []*Statement
 	Line       int
+	File       string
 }
 
 // EnvironmentDeclaration represents a deployment environment.
@@ -186,6 +197,7 @@ type EnvironmentDeclaration struct {
 	Name       string
 	Statements []*Statement
 	Line       int
+	File       string
 }
 
 // ErrorHandlerDeclaration represents an error handling block.
@@ -197,6 +209,7 @@ type ErrorHandlerDeclaration struct {
 	Condition  string // e.g. "database is unreachable"
 	Statements []*Statement
 	Line       int
+	File       string
 }
 
 // BuildDeclaration represents build target configuration.
@@ -207,6 +220,7 @@ type ErrorHandlerDeclaration struct {
 type BuildDeclaration struct {
 	Statements []*Statement
 	Line       int
+	File       string
 }
 
 // ArchitectureDeclaration represents the architecture style of the application.
@@ -219,6 +233,7 @@ type ArchitectureDeclaration struct {
 	Style      string       // monolith, microservices, serverless, event-driven
 	Statements []*Statement // service definitions, gateway config, etc.
 	Line       int
+	File       string
 }
 
 // Statement represents a single line of structured English within a block.

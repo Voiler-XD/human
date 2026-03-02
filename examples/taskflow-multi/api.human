@@ -1,0 +1,71 @@
+api SignUp:
+  accepts name, email, and password
+  check that name is not empty
+  check that email is a valid email
+  check that password is at least 8 characters
+  check that email is not already taken
+  create a User with the given fields
+  assign "user" role
+  send welcome email to the user
+  respond with the created user and auth token
+
+api Login:
+  accepts email and password
+  check that email is not empty
+  check that password is not empty
+  fetch the user by email
+  if user does not exist, respond with "invalid credentials"
+  check that password matches the stored hash
+  if password does not match, respond with "invalid credentials"
+  respond with the user and auth token
+
+api GetTasks:
+  requires authentication
+  fetch all tasks for the current user
+  sort by due date
+  support filtering by status
+  support filtering by priority
+  support searching by title
+  paginate with 20 per page
+  respond with tasks and pagination info
+
+api CreateTask:
+  requires authentication
+  accepts title, description, status, priority, and due date
+  check that title is not empty
+  check that title is less than 200 characters
+  check that due date is in the future
+  create a Task with the given fields and current user as owner
+  set status to "pending" if not provided
+  set priority to "medium" if not provided
+  respond with the created task
+
+api UpdateTask:
+  requires authentication
+  accepts task_id, title, description, status, priority, and due date
+  fetch the task by task_id
+  if task does not exist, respond with "task not found"
+  check that current user is the owner or an admin
+  update the task with the given fields
+  respond with the updated task
+
+api DeleteTask:
+  requires authentication
+  accepts task_id
+  fetch the task by task_id
+  if task does not exist, respond with "task not found"
+  check that current user is the owner or an admin
+  delete the task
+  respond with "task deleted"
+
+api GetProfile:
+  requires authentication
+  fetch the current user
+  respond with the user profile
+
+api UpdateProfile:
+  requires authentication
+  accepts name, bio, and avatar
+  check that name is not empty
+  update the current user with the given fields
+  respond with the updated profile

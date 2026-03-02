@@ -200,8 +200,8 @@ func (r *REPL) loadSettings() {
 	}
 }
 
-// autoDetectProject checks if there's a single .human file in the current
-// directory and loads it automatically.
+// autoDetectProject checks if there's a .human project in the current
+// directory and loads it automatically. Supports multi-file projects.
 func (r *REPL) autoDetectProject() {
 	matches, _ := filepath.Glob("*.human")
 	// Filter out directories (e.g. .human/)
@@ -212,8 +212,21 @@ func (r *REPL) autoDetectProject() {
 			files = append(files, m)
 		}
 	}
+
 	if len(files) == 1 {
 		r.setProject(files[0])
+		return
+	}
+
+	// Multi-file project: if app.human exists, use it as the entry point.
+	if len(files) > 1 {
+		for _, f := range files {
+			if filepath.Base(f) == "app.human" {
+				r.setProject(f)
+				fmt.Fprintf(r.out, "  Detected multi-file project (%d .human files)\n", len(files))
+				return
+			}
+		}
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/barun-bash/human/internal/cli"
 	"github.com/barun-bash/human/internal/fixer"
+	"github.com/barun-bash/human/internal/parser"
 )
 
 func cmdFix(r *REPL, args []string) {
@@ -20,7 +21,14 @@ func cmdFix(r *REPL, args []string) {
 		}
 	}
 
-	result, err := fixer.Analyze([]string{r.projectFile})
+	// Discover all project files for multi-file support.
+	files, err := parser.DiscoverFiles(r.projectFile)
+	if err != nil {
+		fmt.Fprintln(r.errOut, cli.Error(err.Error()))
+		return
+	}
+
+	result, err := fixer.Analyze(files)
 	if err != nil {
 		fmt.Fprintln(r.errOut, cli.Error(err.Error()))
 		return

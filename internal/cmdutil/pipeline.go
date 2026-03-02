@@ -17,22 +17,33 @@ import (
 
 // ParseResult holds output from the parse-analyze pipeline.
 type ParseResult struct {
-	Prog *parser.Program
-	App  *ir.Application
-	Errs *cerr.CompilerErrors
+	Prog        *parser.Program
+	App         *ir.Application
+	Errs        *cerr.CompilerErrors
+	SourceFiles []string // all .human files in the project
 }
 
-// ParseAndAnalyze reads a .human file, parses it, builds the IR,
-// and runs semantic analysis. Returns the combined result.
+// ParseAndAnalyze reads a .human file (or directory), discovers sibling files,
+// parses and merges them, builds the IR, and runs semantic analysis.
 func ParseAndAnalyze(file string) (*ParseResult, error) {
-	source, err := os.ReadFile(file)
+	files, err := parser.DiscoverFiles(file)
 	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", file, err)
+		return nil, err
 	}
 
-	prog, err := parser.Parse(string(source))
+	programs, err := parser.ParseFiles(files)
 	if err != nil {
-		return nil, fmt.Errorf("parse error in %s: %w", file, err)
+		return nil, err
+	}
+
+	var prog *parser.Program
+	if len(programs) == 1 {
+		prog = programs[0]
+	} else {
+		prog, err = parser.MergePrograms(programs)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	app, err := ir.Build(prog)
@@ -40,8 +51,13 @@ func ParseAndAnalyze(file string) (*ParseResult, error) {
 		return nil, fmt.Errorf("IR build error: %w", err)
 	}
 
-	errs := analyzer.Analyze(app, file)
-	return &ParseResult{Prog: prog, App: app, Errs: errs}, nil
+	errs := analyzer.Analyze(app, files[0])
+
+	if len(files) > 1 {
+		fmt.Printf("Parsed %d files\n", len(files))
+	}
+
+	return &ParseResult{Prog: prog, App: app, Errs: errs, SourceFiles: files}, nil
 }
 
 // PrintDiagnostics prints all warnings and errors from a CompilerErrors

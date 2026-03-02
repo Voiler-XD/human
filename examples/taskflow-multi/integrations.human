@@ -1,0 +1,80 @@
+# ─────────────────────────────────────────────────────────────
+── integrations ──
+# ─────────────────────────────────────────────────────────────
+
+integrate with SendGrid:
+  api key from environment variable SENDGRID_API_KEY
+  use for sending transactional emails
+
+integrate with AWS S3:
+  api key from environment variable AWS_ACCESS_KEY
+  secret from environment variable AWS_SECRET_KEY
+  use for storing user avatars and file attachments
+
+integrate with Slack:
+  api key from environment variable SLACK_WEBHOOK_URL
+  use for team notifications and alerts
+
+# ─────────────────────────────────────────────────────────────
+── policies ──
+# ─────────────────────────────────────────────────────────────
+
+policy FreeUser:
+  can create up to 50 tasks per month
+  can view only their own tasks
+  can edit only their own tasks
+  cannot delete completed tasks
+  cannot export data
+
+policy ProUser:
+  can create unlimited tasks
+  can view only their own tasks
+  can edit only their own tasks
+  can delete any of their own tasks
+  can export data
+
+policy Admin:
+  can view all users and their data
+  can edit any task
+  can delete any task
+  can export data
+  can view system analytics
+
+# ─────────────────────────────────────────────────────────────
+── workflows ──
+# ─────────────────────────────────────────────────────────────
+
+when a user signs up:
+  create their account
+  assign FreeUser policy
+  send welcome email with template "welcome"
+  after 3 days, send email with template "getting-started"
+  after 14 days, if they have fewer than 5 tasks,
+    send email with template "need-help"
+
+when a task becomes overdue:
+  send notification to the task owner
+  update task priority to "high"
+  if task is still overdue after 3 days,
+    send reminder email to the task owner
+  alert the admin via Slack
+
+when a task is marked done:
+  update the user's completed task count
+  if all tasks for today are done,
+    send congratulations notification
+  log the completion for analytics
+
+# ─────────────────────────────────────────────────────────────
+── logic ──
+# ─────────────────────────────────────────────────────────────
+
+if database is unreachable:
+  retry 3 times with 1 second delay
+  if still failing, respond with "service temporarily unavailable"
+  alert the engineering team via Slack
+
+if an api request fails validation:
+  respond with a clear message explaining what is wrong
+  log the attempt for analytics
+  do not reveal internal details
