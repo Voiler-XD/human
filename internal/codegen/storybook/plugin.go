@@ -1,6 +1,8 @@
 package storybook
 
 import (
+	"strings"
+
 	"github.com/barun-bash/human/internal/codegen"
 	"github.com/barun-bash/human/internal/ir"
 )
@@ -15,12 +17,17 @@ func (g Generator) Meta() codegen.PluginMeta {
 	}
 }
 
-// Enabled reports whether a frontend framework is configured.
+// Enabled reports whether a supported frontend framework is configured.
+// Only react, vue, angular, and svelte are supported — must match resolveStorybookDir.
 func (g Generator) Enabled(app *ir.Application) bool {
 	if app.Config == nil {
 		return false
 	}
-	return app.Config.Frontend != ""
+	lower := strings.ToLower(app.Config.Frontend)
+	return strings.Contains(lower, "react") ||
+		strings.Contains(lower, "vue") ||
+		strings.Contains(lower, "angular") ||
+		strings.Contains(lower, "svelte")
 }
 
 // StageName returns the display name for progress reporting.

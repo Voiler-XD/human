@@ -108,11 +108,13 @@ func FullBuildWithProgress(file string, progress build.ProgressFunc) (*ir.Applic
 		return nil, nil, nil, nil, fmt.Errorf("%d error(s) found", len(result.Errs.Errors()))
 	}
 
-	// Prompt for port configuration if interactive
+	// Prompt for port configuration if not already set
 	if result.App.Config == nil {
 		result.App.Config = &ir.BuildConfig{}
 	}
-	result.App.Config.Ports = PromptForPorts(os.Stdin, os.Stdout)
+	if result.App.Config.Ports == (ir.PortConfig{}) {
+		result.App.Config.Ports = PromptForPorts(os.Stdin, os.Stdout)
+	}
 
 	yaml, err := ir.ToYAML(result.App)
 	if err != nil {

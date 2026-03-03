@@ -82,6 +82,9 @@ func (g Generator) Generate(app *ir.Application, outputDir string) error {
 }
 
 func writeFile(path, content string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("creating directory %s: %w", filepath.Dir(path), err)
+	}
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}

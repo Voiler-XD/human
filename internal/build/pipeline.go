@@ -56,9 +56,6 @@ func PlanStages(app *ir.Application) []string {
 // and app. Includes quality and scaffold stages that always run.
 func PlanStagesWithRegistry(reg *codegen.Registry, app *ir.Application) []string {
 	cfg, _ := config.Load(".")
-	if cfg == nil {
-		cfg = &config.Config{}
-	}
 	var stages []string
 	for _, g := range reg.EnabledWithConfig(app, cfg) {
 		stages = append(stages, g.StageName())
@@ -103,9 +100,6 @@ func RunGeneratorsWithRegistry(reg *codegen.Registry, app *ir.Application, outpu
 
 	// Load project config for tri-state overrides and plugin settings.
 	cfg, _ := config.Load(".")
-	if cfg == nil {
-		cfg = &config.Config{}
-	}
 
 	// Get enabled generators, respecting config overrides.
 	enabled := reg.EnabledWithConfig(app, cfg)
@@ -132,6 +126,7 @@ func RunGeneratorsWithRegistry(reg *codegen.Registry, app *ir.Application, outpu
 			// Storybook generates into the frontend directory, not standalone.
 			dir = resolveStorybookDir(app, outputDir)
 			if dir == "" {
+				fmt.Printf("  note: skipping Storybook (unsupported frontend %q)\n", app.Config.Frontend)
 				continue
 			}
 		default:
@@ -171,9 +166,6 @@ func RunGeneratorsWithRegistry(reg *codegen.Registry, app *ir.Application, outpu
 			files = CountFiles(filepath.Join(outputDir, "services")) +
 				CountFiles(filepath.Join(outputDir, "functions")) +
 				CountFiles(filepath.Join(outputDir, "gateway"))
-			if files == 0 {
-				continue // architecture generator produced nothing (monolith)
-			}
 		default:
 			files = CountFiles(dir)
 		}

@@ -205,7 +205,9 @@ func Run(app *ir.Application, outputDir string) (*Result, error) {
 		if err := writeFile(secPath, secScript); err != nil {
 			return nil, fmt.Errorf("security test script: %w", err)
 		}
-		os.Chmod(secPath, 0755)
+		if err := os.Chmod(secPath, 0755); err != nil {
+			return nil, fmt.Errorf("chmod security tests: %w", err)
+		}
 	}
 	result.SecurityTestCount = secTestCount
 
@@ -281,7 +283,10 @@ func writeFile(path, content string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("creating directory %s: %w", dir, err)
 	}
-	return os.WriteFile(path, []byte(content), 0644)
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+	return nil
 }
 
 // toKebabCase converts PascalCase to kebab-case.
